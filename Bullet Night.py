@@ -67,7 +67,7 @@ class Game():
 
         self.explosions = []
 
-        self.boss = Boss(64,16,1,2,3)
+        self.boss = Boss(64,16,0.01,2,3)
 
         self.time = pyxel.frame_count
         self.scene = 2
@@ -408,7 +408,7 @@ class Boss:
                 game.explosions += [Explosion(random.uniform(self.posx-12,self.posx+12),random.uniform(self.posy-12,self.posy+12))]
             if self.deathcd >= 30:
                 self.phase = 6
-                game.bullets = [x for x in self.bullets if x.type != 0]
+                game.bullets = [x for x in game.bullets if x.type != 0]
                 game.time = int((pyxel.frame_count - game.time)/60)
                 game.scene = 3
 
