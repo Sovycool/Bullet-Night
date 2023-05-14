@@ -1,1 +1,1 @@
-pyxel run ndc_v2.py
+pyxel run "Bullet Night.py"
