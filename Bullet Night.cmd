@@ -1,1 +1,1 @@
-pyxel run ndc_WIP.py
+pyxel run ndc_v2.py
