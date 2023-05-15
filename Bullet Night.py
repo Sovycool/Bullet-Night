@@ -1,6 +1,7 @@
 import pyxel
 import math
 import random
+import csv
 
 
 class Game():
@@ -29,8 +30,10 @@ class Game():
         self.boss = None
 
         self.menus = None
-        self.scoreboard = None
-        self.highscore = ["",0]
+        self.text_screen = None
+        for index,line in enumerate(csv.reader(open("scoreboard.csv", "r"))):
+            if index == 0:
+                self.highscore = [line[0],int(line[1])]
         self.score = None
         self.time = None
         self.scene = None
@@ -42,13 +45,13 @@ class Game():
     def menu(self):
 
         self.menus = [
-            [Button(32,64,"Start",self.start),Button(32,80,"Quit game",pyxel.quit)],
+            [Button(32,64,"Start",self.start),Button(32,80,"Scoreboard",self.scoreboard),Button(32,96,"Quit game",pyxel.quit)],
+            [Button(8,112,"Menu",self.menu)],
             [],
-            [],
-            [Button(8,112,"Restart",self.menu)]
+            [Button(8,112,"Save",self.save)]
         ]
-        self.scoreboard = ""
-        self.score = ["",0]
+        self.text_screen = ""
+        self.name = None
         self.scene = 0
 
     def start(self):
@@ -67,12 +70,47 @@ class Game():
 
         self.explosions = []
 
-        self.boss = Boss(64,16,0.01,2,3)
+        self.boss = Boss(64,16,1,2,3)
 
         self.time = pyxel.frame_count
+        self.name = Name()
         self.scene = 2
 
+    def save(self):
+
+        score_line = [self.score[0],self.score[1],int(self.hp_percent*100),int(self.boss.hp_percent*100),self.time]
+        
+        scoreboard = [x for x in csv.reader(open("scoreboard.csv", "r"))]
+        output = []
+        while len(scoreboard) < 13:
+            scoreboard.append([" X ",0,0,0,0])
+
+        for x in range(13):
+            if int(score_line[1]) > int(scoreboard[x][1]):
+                output.append(score_line)
+                score_line = scoreboard[x]
+            else:
+                output.append(scoreboard[x])
+        
+        scoreboard = csv.writer(open("scoreboard.csv", "w", newline=""))
+        scoreboard.writerows(output)
+
+        self.scoreboard()
+
+    def scoreboard(self):
+
+        self.scene = 1
+
+        scoreboard = csv.reader(open("scoreboard.csv", "r"))
+        self.text_screen = "   NAM SCO  HLT  BOS TIM\n\n"
+        for index,line in enumerate(scoreboard):
+            self.text_screen += (" "*(2-len(str(index+1)))) + str(index+1) + " " + str(line[0]) + " " + str(line[1]) + (" "*(5-len(str(line[1])))) + str(line[2]) + "%" + (" "*(4-len(str(line[2])))) + str(line[3]) + "%" + (" "*(3-len(str(line[3])))) + str(line[4]) + "s\n"
+
     def update(self):
+
+        if self.scene == 1:
+
+            self.scoreboard()
         
         if self.scene == 2 or self.scene == 3:
             if self.hp_percent > 0:
@@ -104,11 +142,14 @@ class Game():
             
             if self.scene == 3:
 
-                self.score = ["",int(1000*self.hp_percent) + int(1000*(1-self.boss.hp_percent)) + int((min(1000*(self.boss.hp_percent == 0),20000/self.time)))]
+                self.name.update()
 
-                self.highscore = [self.highscore[0],max(self.highscore[1],self.score[1])]
+                self.score = [self.name.name,int(3333*self.hp_percent) + int(3333*(1-self.boss.hp_percent)) + int((min(3333*(self.boss.hp_percent == 0),(20*3333)/self.time)))]
 
-                self.scoreboard = "You won the battle !\n\nHealth left : " + str(int(self.hp_percent*100)) + "%\nHealth boss lost : " + str(int((1-self.boss.hp_percent)*100)) + "%\nTimer : " + str(self.time) + " seconds\nScore : " + str(int(1000*self.hp_percent)) + "+" + str(int(1000*(1-self.boss.hp_percent))) + "+" + str(int((min(1000*(self.boss.hp_percent == 0),20000/self.time)))) + "\n      = " + str(self.score[1]) +"\n\nHighscore : " + str(self.highscore[1])
+                if self.score[1] >= self.highscore[1]:
+                    self.highscore = [self.score[0],max(self.highscore[1],self.score[1])]
+
+                self.text_screen = "You won the battle !\n\nHealth left : " + str(int(self.hp_percent*100)) + "%\nHealth boss lost : " + str(int((1-self.boss.hp_percent)*100)) + "%\nTimer : " + str(self.time) + " seconds\n\nHighscore : " + str(self.highscore[0]) + " " + str(self.highscore[1]) + "\nScore : " + str(int(3333*self.hp_percent)) + "+" + str(int(3333*(1-self.boss.hp_percent))) + "+" + str(int((min(3333*(self.boss.hp_percent == 0),20000/self.time))))
 
         for button in self.menus[self.scene]:
             button.update(self)
@@ -119,6 +160,10 @@ class Game():
 
         if self.scene == 0:
             pyxel.bltm(0,0,0,0,0,128,128,0)
+
+        if self.scene == 1:
+            pyxel.bltm(0,0,0,128,0,128,128,0)
+            pyxel.text(16,16,self.text_screen,15)
 
         if self.scene == 2 or self.scene == 3:
             for bullet in self.bullets:
@@ -133,7 +178,9 @@ class Game():
                 pyxel.rect(2,66+60*(1-self.hp_percent),6,60*self.hp_percent,11)
             else:
                 pyxel.bltm(0,0,0,128,0,128,128,0)
-                pyxel.text(16,16,self.scoreboard,15)
+                pyxel.text(16,16,self.text_screen,15)
+                pyxel.text(48,96,str(self.score[0])+" "+str(self.score[1]),7+(8*int(0.5+((pyxel.frame_count/8)%1))))
+                pyxel.text(48,98,str(self.name.selection),7+(8*int(0.5+((pyxel.frame_count/8)%1))))
 
             for explosion in self.explosions:
                 explosion.draw()
@@ -206,7 +253,6 @@ class Game():
 
         if self.scene == 2:
             self.deathcd += 1
-            print(self.deathcd)
             if self.deathcd < 20:
                 self.explosions += [Explosion(random.uniform(self.posx-6,self.posx+6),random.uniform(self.posy-6,self.posy+6))]
             if self.deathcd >= 30:
@@ -218,7 +264,7 @@ class Game():
 
 class Bullet:
 
-    def __init__(self,x,y,angle,vel,rot_speed,type) -> None:
+    def __init__(self,x,y,angle,vel,rot_speed,type):
         
         self.posx,self.posy = x,y
         self.angle = angle
@@ -252,9 +298,9 @@ class Bullet:
 
 class Boss:
 
-    def __init__(self,x,y,hp_percent,rotation_speed, cubes) -> None:
+    def __init__(self,x,y,hp_percent,rotation_speed, cubes):
 
-        self.hp_max = 5000
+        self.hp_max = 2000
         self.hp = self.hp_max*hp_percent
         self.hp_percent = hp_percent
         self.speed = 0.5
@@ -286,7 +332,7 @@ class Boss:
     def update(self,game):
 
         self.phases()
-        self.deplacements()
+        self.deplacements(game)
         self.shoot(game)
         self.death(game)
 
@@ -307,9 +353,9 @@ class Boss:
         #pyxel.pset(self.posx,self.posy,7)
         #pyxel.pset(*self.target,6)
     
-    def deplacements(self):
+    def deplacements(self,game):
 
-        self.patterns()
+        self.patterns(game)
 
         vector = [self.target[0] - self.posx,self.target[1] - self.posy]
         if vector[0] == 0:
@@ -332,6 +378,46 @@ class Boss:
         self.posx += min((math.cos(math.radians(angle))*self.vel, self.target[0] - self.posx),key=lambda x:abs(x))
         self.posy += min((math.sin(math.radians(angle))*self.vel, self.target[1] - self.posy),key=lambda x:abs(x))
 
+    def patterns(self,game):
+        
+        if self.phase == 4:
+            self.target = [game.posx,game.posy]
+        else:
+            self.target = self.pattern[0]
+        
+        if self.posx == self.target[0] and self.posy == self.target[1]:
+            self.pattern.append(self.pattern[0])
+            self.pattern.pop(0)
+
+    def phases(self):
+
+        #shooting pattern : posx,posy,angle,vel,rot_speed,type,cd,cd_max,spread,amount,spin?
+
+        if self.phase == 0:
+            self.pattern = [[16,16],[112,16]]
+            self.shooting_pattern = [[None,None,90,1,0,1,100,20,45,3,False],[0,34,0,1,0,3,0,2,0,1,False],[128,34,180,1,0,3,0,2,0,1,False]]
+            self.vel = self.speed
+            self.phase = 1
+        elif self.phase == 1 and self.hp_percent < 0.75:
+            self.pattern = [[64,64]]
+            self.shooting_pattern = [[None,None,0,0.5,5,2,100,10,360,3,True],[None,None,0,0.25,0,1,100,100,360,18,False]]
+            self.vel = self.speed * 1.5
+            self.phase = 2
+        elif self.phase == 2 and self.hp_percent < 0.5:
+            self.pattern = [[16,16],[112,16],[112,112],[16,112]]
+            self.shooting_pattern = [[None,None,0,0.25,0,1,100,100,360,20,True],[None,None,0,0.5,0,2,100,200,360,15,True],[None,None,0,0.75,0,3,100,200,360,10,True]]
+            self.vel = self.speed
+            self.phase = 3
+        elif self.phase == 3 and self.hp_percent < 0.25:
+            self.pattern = [[]]
+            self.shooting_pattern = [[None,None,0,0.25,0,1,0,100,360,20,True],[None,None,0,0.5,0,2,0,100,360,15,True],[None,None,0,0.75,0,3,0,100,360,10,True]]
+            self.vel = self.speed * 0.25
+            self.phase = 4
+        elif self.phase == 4 and self.hp_percent <= 0:
+            self.pattern = [[self.posx,self.posy]]
+            self.shooting_pattern = [[]]
+            self.phase = 5
+
     def shoot(self,game):
 
         for pattern in self.shooting_pattern:
@@ -352,54 +438,12 @@ class Boss:
                         for x in range(int(-bullet[8]/2),int(bullet[8]/2)+1,int(bullet[8]/(bullet[9]-1))):
                             game.bullets += [Bullet(*bullet[0:2],bullet[2]+x,*bullet[3:6])]
 
-                    pattern[6] = bullet[7]
+                    pattern[6] = bullet[7] * min(0.75 + self.hp_percent,1)
 
                 if bullet[10]:
                     pattern[2] -= bullet[3]/2            
                 pattern[6] = max(0,pattern[6] - 1)
-                
-
-    def patterns(self):
-
-        self.target = self.pattern[0]
-        
-        if self.posx == self.target[0] and self.posy == self.target[1]:
-            if self.phase == 4:
-                self.pattern.append([random.uniform(16,112),random.uniform(16,112)])
-                self.pattern.pop(0)
-            else:
-                self.pattern.append(self.pattern[0])
-                self.pattern.pop(0)
     
-    def phases(self):
-
-        #shooting pattern : posx,posy,angle,vel,rot_speed,type,cd,cd_max,spread,amount,spin?
-
-        if self.phase == 0:
-            self.pattern = [[16,16],[112,16]]
-            self.shooting_pattern = [[None,None,90,1,0,1,100,20,45,3,False],[0,34,0,1,0,3,0,10,0,1,False]]
-            self.vel = self.speed
-            self.phase = 1
-        elif self.phase == 1 and self.hp_percent < 0.75:
-            self.pattern = [[64,64]]
-            self.shooting_pattern = [[None,None,0,0.5,5,2,100,10,360,3,True],[None,None,0,0.25,0,1,100,100,360,18,False]]
-            self.vel = self.speed * 1.5
-            self.phase = 2
-        elif self.phase == 2 and self.hp_percent < 0.5:
-            self.pattern = [[16,16],[112,16],[112,112],[16,112]]
-            self.shooting_pattern = [[None,None,0,0.25,0,1,100,100,360,20,False],[None,None,0,0.5,0,2,100,200,360,15,False],[None,None,0,0.75,0,3,100,200,360,10,False]]
-            self.vel = self.speed
-            self.phase = 3
-        elif self.phase == 3 and self.hp_percent < 0.25:
-            self.pattern = [[random.uniform(16,112),random.uniform(16,112)]]
-            self.shooting_pattern = [[None,None,0,0.25,0,1,0,100,360,20,False],[None,None,0,0.5,0,2,0,100,360,15,False],[None,None,0,0.75,0,3,0,100,360,10,False]]
-            self.vel = self.speed * 0.25
-            self.phase = 4
-        elif self.phase == 4 and self.hp_percent <= 0:
-            self.pattern = [[self.posx,self.posy]]
-            self.shooting_pattern = [[]]
-            self.phase = 5
-
     def death(self,game):
 
         if self.phase == 5:
@@ -408,15 +452,52 @@ class Boss:
                 game.explosions += [Explosion(random.uniform(self.posx-12,self.posx+12),random.uniform(self.posy-12,self.posy+12))]
             if self.deathcd >= 30:
                 self.phase = 6
-                game.bullets = [x for x in game.bullets if x.type != 0]
+                game.bullets = [x for x in game.bullets if x.type == 0]
                 game.time = int((pyxel.frame_count - game.time)/60)
                 game.scene = 3
 
 
 
+class Name:
+
+    def __init__(self):
+        self.char = [65,65,65]
+        self.name = chr(self.char[0]) + chr(self.char[1]) + chr(self.char[2])
+        self.selected_char = 0
+        self.selection = "   "
+
+    def update(self):
+
+        underscore = ["_  "," _ ","  _"]
+
+        self.name = chr(self.char[0]) + chr(self.char[1]) + chr(self.char[2])
+
+        if pyxel.btnp(pyxel.KEY_RIGHT):
+            self.selected_char += 1
+        if pyxel.btnp(pyxel.KEY_LEFT):
+            self.selected_char -= 1
+        if self.selected_char > 2:
+            self.selected_char = 0 
+        if self.selected_char < 0:
+            self.selected_char = 2
+
+        self.selection = underscore[self.selected_char]
+
+        if pyxel.btnp(pyxel.KEY_UP):
+            self.char[self.selected_char] += 1
+        if pyxel.btnp(pyxel.KEY_DOWN):
+            self.char[self.selected_char] -= 1
+        for x,char in enumerate(self.char):
+            if char > 90:
+                self.char[x] = 65 
+            if char < 65:
+                self.char[x] = 90
+
+
+
 class Button:
 
-    def __init__(self,x,y,text,function) -> None:
+    def __init__(self,x,y,text,function):
         self.posx,self.posy = x,y
         self.text = text
         self.function = function
@@ -437,7 +518,7 @@ class Button:
 
 class Cube:
 
-    def __init__(self,size,color) -> None:
+    def __init__(self,size,color):
 
         self.corners = [
             [[-1],[-1],[1]],
