@@ -152,3 +152,4 @@ cython_debug/
 #.idea/
 NDC.zip
 pyxel_geo.py
+test.py
